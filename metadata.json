@@ -1,0 +1,6 @@
+{
+  "name": "Hi Tables! — Hospitality Digital Touchpoint",
+  "description": "A refined hospitality experience starting at the table. Tap or scan to access digital menus, guest Wi-Fi, and frictionless table feedback.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
