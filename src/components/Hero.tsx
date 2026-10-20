@@ -16,13 +16,11 @@ import { BackgroundVideo } from "./BackgroundVideo.tsx";
 
 interface HeroProps {
   onScrollToTouchpoints: () => void;
-  onOpenPromptDrawer: () => void;
   onSubmittedEmail?: (email: string) => void;
 }
 
 export const Hero: React.FC<HeroProps> = ({
   onScrollToTouchpoints,
-  onOpenPromptDrawer,
   onSubmittedEmail,
 }) => {
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);

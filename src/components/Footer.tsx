@@ -3,12 +3,10 @@ import { Globe, ArrowUp } from "lucide-react";
 
 interface FooterProps {
   onScrollToSection: (sectionId: string) => void;
-  onOpenPromptDrawer: () => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({
   onScrollToSection,
-  onOpenPromptDrawer,
 }) => {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -67,12 +65,6 @@ export const Footer: React.FC<FooterProps> = ({
               className="hover:text-[#1F2421] transition-colors cursor-pointer"
             >
               Venue Benefits
-            </button>
-            <button
-              onClick={onOpenPromptDrawer}
-              className="text-[#0A3420] font-semibold hover:underline transition-colors cursor-pointer"
-            >
-              Lovable Prompt Studio
             </button>
           </div>
 

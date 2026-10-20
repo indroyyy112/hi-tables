@@ -1,14 +1,12 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Globe, ArrowRight, Sparkles } from "lucide-react";
+import { Globe, ArrowRight } from "lucide-react";
 
 interface NavbarProps {
-  onOpenPromptDrawer: () => void;
   onScrollToSection: (sectionId: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  onOpenPromptDrawer,
   onScrollToSection,
 }) => {
   return (
@@ -71,15 +69,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right side: Actions */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={onOpenPromptDrawer}
-            className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-[#0A3420] bg-[#EAE5DC] border border-[#DCD6CB] hover:bg-[#E2DDD3] transition-colors cursor-pointer"
-            title="Open Lovable Master Prompt & Assets"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[#1B4D36]" />
-            <span>Prompt Studio</span>
-          </button>
-
           <button
             onClick={() => onScrollToSection("early-access")}
             className="rounded-full px-5 py-2 text-xs md:text-sm font-medium text-[#F9F7F0] bg-[#0A3420] hover:bg-[#1B4D36] transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"

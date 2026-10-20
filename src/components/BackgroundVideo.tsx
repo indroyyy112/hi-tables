@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
+import defaultPoster from "../assets/images/coffee_shop_crowd_hero_1791947763368.jpg";
 
 interface BackgroundVideoProps {
   streamUrl?: string;
@@ -9,8 +10,8 @@ interface BackgroundVideoProps {
 
 export const BackgroundVideo: React.FC<BackgroundVideoProps> = ({
   streamUrl = "https://stream.mux.com/kimF2ha9zLrX64H00UgLGPflCzNtl1T0215MlAmeOztv8.m3u8",
-  directMp4Url = "https://assets.mixkit.co/videos/preview/mixkit-friends-talking-in-a-coffee-shop-4340-large.mp4",
-  posterUrl = "/src/assets/images/coffee_shop_crowd_hero_1791947763368.jpg",
+  directMp4Url,
+  posterUrl = defaultPoster,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);

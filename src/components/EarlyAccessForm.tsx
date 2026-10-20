@@ -3,12 +3,10 @@ import { ArrowRight, Check, Building2, Mail, User } from "lucide-react";
 
 interface EarlyAccessFormProps {
   initialEmail?: string;
-  onOpenPromptDrawer: () => void;
 }
 
 export const EarlyAccessForm: React.FC<EarlyAccessFormProps> = ({
   initialEmail = "",
-  onOpenPromptDrawer,
 }) => {
   const [fullName, setFullName] = useState<string>("");
   const [email, setEmail] = useState<string>(initialEmail);
