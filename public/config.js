@@ -6,6 +6,6 @@
 // keeping this key secret.
 // ============================================================
 const SUPABASE_URL = "https://yneyidzigakknmbegxuf.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZXlpZHppZ2Fra25tYmVneHVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MDY1ODIsImV4cCI6MjEwNjE4MjU4Mn0.m35VkbmMhKnlas3ZAK5mLTqCoCbgDWdt55WqWHSZzD4";
+const SUPABASE_ANON_KEY = "sb_publishable_mnULuXg3y5MDOUYfhGsFGQ_GfZCgsM8";
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
