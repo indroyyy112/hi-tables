@@ -746,14 +746,31 @@
     updateCartUI();
   });
 
+  function cleanSSID(ssid) {
+    if (!ssid) return 'Kopi Senja';
+    var s = String(ssid).trim();
+    var lower = s.toLowerCase();
+    if (lower === 'kontol' || lower === 'loading…' || lower === 'undefined' || lower === 'null') {
+      return 'Kopi Senja';
+    }
+    return s;
+  }
+
+  function cleanReviewUrl(url) {
+    if (!url || url.includes('REPLACE_WITH_PLACE_ID')) {
+      return 'https://maps.app.goo.gl/C8KAm28Pv8kcndpp6';
+    }
+    return url;
+  }
+
   function applyLiveStoreConfig(cfg) {
     if (!cfg) return;
     if (cfg.name || cfg.store_name) STATE.storeData.name = cfg.name || cfg.store_name;
     if (cfg.tagline !== undefined) STATE.storeData.tagline = cfg.tagline;
-    if (cfg.wifi_ssid !== undefined) STATE.storeData.wifi_ssid = cfg.wifi_ssid;
-    if (cfg.wifi_password !== undefined) STATE.storeData.wifi_password = cfg.wifi_password;
+    if (cfg.wifi_ssid !== undefined) STATE.storeData.wifi_ssid = cleanSSID(cfg.wifi_ssid);
+    if (cfg.wifi_password !== undefined) STATE.storeData.wifi_password = cfg.wifi_password || 'senusa1708';
     if (cfg.review_link || cfg.google_review_url) {
-      STATE.storeData.google_review_url = cfg.review_link || cfg.google_review_url;
+      STATE.storeData.google_review_url = cleanReviewUrl(cfg.review_link || cfg.google_review_url);
     }
 
     var titleEl = document.getElementById('store-title');
@@ -809,9 +826,9 @@
               var newCfg = {
                 name: payload.new.store_name,
                 tagline: payload.new.tagline,
-                wifi_ssid: payload.new.wifi_ssid,
-                wifi_password: payload.new.wifi_password,
-                review_link: payload.new.review_link
+                wifi_ssid: cleanSSID(payload.new.wifi_ssid),
+                wifi_password: payload.new.wifi_password || 'senusa1708',
+                review_link: cleanReviewUrl(payload.new.review_link)
               };
               applyLiveStoreConfig(newCfg);
               try { localStorage.setItem('ks_store_config', JSON.stringify(newCfg)); } catch(e) {}
@@ -827,7 +844,12 @@
     try {
       var localCfg = localStorage.getItem('ks_store_config');
       if (localCfg) {
-        applyLiveStoreConfig(JSON.parse(localCfg));
+        var parsed = JSON.parse(localCfg);
+        if (parsed.wifi_ssid && cleanSSID(parsed.wifi_ssid) !== parsed.wifi_ssid) {
+          localStorage.removeItem('ks_store_config');
+        } else {
+          applyLiveStoreConfig(parsed);
+        }
       }
     } catch(e) {}
 
@@ -836,16 +858,17 @@
       if (sb) {
         var cfgRes = await sb.from('store_config').select('*').eq('id', 'default').maybeSingle();
         if (cfgRes.data) {
+          var cloudCfg = {
+            name: cfgRes.data.store_name || 'Kopi Senja',
+            tagline: cfgRes.data.tagline || '',
+            wifi_ssid: cleanSSID(cfgRes.data.wifi_ssid),
+            wifi_password: cfgRes.data.wifi_password || 'senusa1708',
+            google_review_url: cleanReviewUrl(cfgRes.data.review_link)
+          };
+
           var localSaved = localStorage.getItem('ks_store_config');
-          // If no local config was saved yet, use supabase cloud config
+          // If no local config was saved yet, use sanitized cloud config
           if (!localSaved) {
-            var cloudCfg = {
-              name: cfgRes.data.store_name || 'Kopi Senja',
-              tagline: cfgRes.data.tagline || '',
-              wifi_ssid: cfgRes.data.wifi_ssid || 'Kopi Senja',
-              wifi_password: cfgRes.data.wifi_password || 'senusa1708',
-              google_review_url: cfgRes.data.review_link || 'https://maps.google.com'
-            };
             applyLiveStoreConfig(cloudCfg);
             try { localStorage.setItem('ks_store_config', JSON.stringify(cloudCfg)); } catch(e) {}
           }
