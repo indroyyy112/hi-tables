@@ -1187,21 +1187,63 @@
       if (localCfg) applyLiveStoreConfig(JSON.parse(localCfg));
     } catch(e) {}
 
-    document.getElementById('modal-wifi-ssid').textContent = STATE.storeData.wifi_ssid;
-    document.getElementById('modal-wifi-pass').textContent = STATE.storeData.wifi_password;
+    var ssid = STATE.storeData.wifi_ssid || 'Kopi Senja';
+    var pass = STATE.storeData.wifi_password || 'senusa1708';
+
+    var ssidEl = document.getElementById('modal-wifi-ssid');
+    if (ssidEl) ssidEl.textContent = ssid;
+    var passEl = document.getElementById('modal-wifi-pass');
+    if (passEl) passEl.textContent = pass;
+
     renderWifiModalQR();
-    document.getElementById('wifi-sheet').classList.add('open');
+
+    var sheet = document.getElementById('wifi-sheet');
+    if (sheet) sheet.classList.add('open');
+  }
+
+  function renderWifiModalQR() {
+    var ssid = STATE.storeData.wifi_ssid || 'Kopi Senja';
+    var pass = STATE.storeData.wifi_password || 'senusa1708';
+    var qrStr = 'WIFI:T:WPA;S:' + ssid + ';P:' + pass + ';;';
+    var canvas = document.getElementById('wifi-qr');
+    if (window.QRCode && canvas) {
+      try {
+        QRCode.toCanvas(canvas, qrStr, { width: 170, margin: 1, color: { dark: '#121512', light: '#FFFFFF' } }, function(err) {
+          if (err) console.warn('QR render error:', err);
+        });
+      } catch (err) {
+        console.warn('QRCode.toCanvas error:', err);
+      }
+    }
   }
 
   function copyWifiPassword() {
-    var pass = STATE.storeData.wifi_password;
-    if (navigator.clipboard) {
+    var pass = STATE.storeData.wifi_password || 'senusa1708';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(pass).then(function() {
         var btnText = document.getElementById('copy-btn-text');
-        btnText.textContent = '✓ Password Tersalin!';
-        setTimeout(function() { btnText.textContent = 'Salin Password Wi-Fi'; }, 2000);
+        if (btnText) btnText.textContent = '✓ Password Tersalin!';
+        setTimeout(function() { if (btnText) btnText.textContent = 'Salin Password Wi-Fi'; }, 2000);
+      }).catch(function() {
+        fallbackCopyPassword(pass);
       });
+    } else {
+      fallbackCopyPassword(pass);
     }
+  }
+
+  function fallbackCopyPassword(text) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      var btnText = document.getElementById('copy-btn-text');
+      if (btnText) btnText.textContent = '✓ Password Tersalin!';
+      setTimeout(function() { if (btnText) btnText.textContent = 'Salin Password Wi-Fi'; }, 2000);
+    } catch(e) {}
   }
 
   function closeSheet(e, id) {

@@ -1751,12 +1751,20 @@
   }
 
   function renderWifiQR() {
-    var ssid = document.getElementById('cfg-wifi-ssid').value;
-    var pass = document.getElementById('cfg-wifi-pass').value;
+    var ssidEl = document.getElementById('cfg-wifi-ssid');
+    var passEl = document.getElementById('cfg-wifi-pass');
+    var ssid = (ssidEl ? ssidEl.value : '') || (DASH.storeConfig ? DASH.storeConfig.wifi_ssid : '') || 'Kopi Senja';
+    var pass = (passEl ? passEl.value : '') || (DASH.storeConfig ? DASH.storeConfig.wifi_password : '') || 'senusa1708';
     var qrStr = 'WIFI:T:WPA;S:' + ssid + ';P:' + pass + ';;';
     var canvas = document.getElementById('profile-wifi-qr');
-    if (window.QRCode) {
-      QRCode.toCanvas(canvas, qrStr, { width: 140, margin: 1, color: { dark: '#121512', light: '#FFFFFF' } });
+    if (window.QRCode && canvas) {
+      try {
+        QRCode.toCanvas(canvas, qrStr, { width: 140, margin: 1, color: { dark: '#121512', light: '#FFFFFF' } }, function(err) {
+          if (err) console.warn(err);
+        });
+      } catch(e) {
+        console.warn('QR Canvas error:', e);
+      }
     }
   }
 
