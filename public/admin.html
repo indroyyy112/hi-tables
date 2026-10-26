@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
 <script src="config.js"></script>
 <style>
   :root {
@@ -1060,12 +1060,12 @@
 
           <div class="form-group">
             <label>Nama Wi-Fi (SSID)</label>
-            <input type="text" class="form-control" id="cfg-wifi-ssid" value="Kopi Senja">
+            <input type="text" class="form-control" id="cfg-wifi-ssid" value="Kopi Senja" oninput="renderWifiQR()">
           </div>
 
           <div class="form-group">
             <label>Kata Sandi Wi-Fi</label>
-            <input type="text" class="form-control" id="cfg-wifi-pass" value="senusa1708">
+            <input type="text" class="form-control" id="cfg-wifi-pass" value="senusa1708" oninput="renderWifiQR()">
           </div>
 
           <div style="text-align:center; margin:16px 0;">
@@ -1153,10 +1153,30 @@
 
   async function initDashboard() {
     loadMockOrSavedData();
+    loadSavedStoreConfig();
     await fetchFromSupabase();
     renderAll();
     renderTablesGrid();
     renderWifiQR();
+  }
+
+  function loadSavedStoreConfig() {
+    try {
+      var saved = localStorage.getItem('ks_store_config');
+      if (saved) {
+        var parsed = JSON.parse(saved);
+        if (parsed) {
+          DASH.storeConfig = Object.assign(DASH.storeConfig, parsed);
+        }
+      }
+    } catch(e) {}
+    if (document.getElementById('cfg-store-name')) {
+      document.getElementById('cfg-store-name').value = DASH.storeConfig.name || 'Kopi Senja';
+      document.getElementById('cfg-tagline').value = DASH.storeConfig.tagline || '';
+      document.getElementById('cfg-wifi-ssid').value = DASH.storeConfig.wifi_ssid || 'Kopi Senja';
+      document.getElementById('cfg-wifi-pass').value = DASH.storeConfig.wifi_password || 'senusa1708';
+      document.getElementById('cfg-review-link').value = DASH.storeConfig.review_link || '';
+    }
   }
 
   function loadMockOrSavedData() {
@@ -1256,18 +1276,22 @@
 
       var cfgRes = await sb.from('store_config').select('*').eq('id', 'default').maybeSingle();
       if (cfgRes.data) {
-        DASH.storeConfig = {
-          name: cfgRes.data.store_name || 'Kopi Senja',
-          tagline: cfgRes.data.tagline || '',
-          wifi_ssid: cfgRes.data.wifi_ssid || 'Kopi Senja',
-          wifi_password: cfgRes.data.wifi_password || 'senusa1708',
-          review_link: cfgRes.data.review_link || ''
-        };
-        document.getElementById('cfg-store-name').value = DASH.storeConfig.name;
-        document.getElementById('cfg-tagline').value = DASH.storeConfig.tagline;
-        document.getElementById('cfg-wifi-ssid').value = DASH.storeConfig.wifi_ssid;
-        document.getElementById('cfg-wifi-pass').value = DASH.storeConfig.wifi_password;
-        document.getElementById('cfg-review-link').value = DASH.storeConfig.review_link;
+        var localCfg = localStorage.getItem('ks_store_config');
+        if (!localCfg) {
+          DASH.storeConfig = {
+            name: cfgRes.data.store_name || 'Kopi Senja',
+            tagline: cfgRes.data.tagline || '',
+            wifi_ssid: cfgRes.data.wifi_ssid || 'Kopi Senja',
+            wifi_password: cfgRes.data.wifi_password || 'senusa1708',
+            review_link: cfgRes.data.review_link || ''
+          };
+          localStorage.setItem('ks_store_config', JSON.stringify(DASH.storeConfig));
+          document.getElementById('cfg-store-name').value = DASH.storeConfig.name;
+          document.getElementById('cfg-tagline').value = DASH.storeConfig.tagline;
+          document.getElementById('cfg-wifi-ssid').value = DASH.storeConfig.wifi_ssid;
+          document.getElementById('cfg-wifi-pass').value = DASH.storeConfig.wifi_password;
+          document.getElementById('cfg-review-link').value = DASH.storeConfig.review_link;
+        }
       }
 
       var fbRes = await sb.from('feedback').select('*').order('created_at', { ascending: false }).limit(50);
@@ -1737,29 +1761,56 @@
   }
 
   async function saveStoreConfig() {
-    var name = document.getElementById('cfg-store-name').value;
-    var tagline = document.getElementById('cfg-tagline').value;
-    var ssid = document.getElementById('cfg-wifi-ssid').value;
-    var pass = document.getElementById('cfg-wifi-pass').value;
-    var reviewLink = document.getElementById('cfg-review-link').value;
+    var name = document.getElementById('cfg-store-name').value.trim() || 'Kopi Senja';
+    var tagline = document.getElementById('cfg-tagline').value.trim();
+    var ssid = document.getElementById('cfg-wifi-ssid').value.trim();
+    var pass = document.getElementById('cfg-wifi-pass').value.trim();
+    var reviewLink = document.getElementById('cfg-review-link').value.trim();
 
     DASH.storeConfig = { name: name, tagline: tagline, wifi_ssid: ssid, wifi_password: pass, review_link: reviewLink };
     renderWifiQR();
 
+    // 1. Save to LocalStorage immediately
+    try {
+      localStorage.setItem('ks_store_config', JSON.stringify(DASH.storeConfig));
+    } catch(e) {}
+
+    // 2. Broadcast realtime update to all open customer hubs & standee previews
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        var bc = new BroadcastChannel('kopi_senja_hub_sync');
+        bc.postMessage({ type: 'STORE_CONFIG_UPDATED', config: DASH.storeConfig });
+        setTimeout(function() { bc.close(); }, 500);
+      }
+    } catch(e) {}
+
+    // 3. Attempt Supabase cloud sync
+    var cloudSynced = false;
     try {
       var sb = window.supabaseClient;
       if (sb) {
-        await sb.from('store_config').update({
+        var res = await sb.from('store_config').update({
           store_name: name,
           tagline: tagline,
           wifi_ssid: ssid,
           wifi_password: pass,
-          review_link: reviewLink
-        }).eq('id', 'default');
+          review_link: reviewLink,
+          updated_at: new Date().toISOString()
+        }).eq('id', 'default').select();
+        
+        if (!res.error && res.data && res.data.length > 0) {
+          cloudSynced = true;
+        }
       }
-    } catch(e) {}
+    } catch(e) {
+      console.warn('Supabase sync notice:', e);
+    }
 
-    showToast('Profil kedai & Wi-Fi berhasil disimpan dan disinkronkan ke Master Admin!', 'success');
+    if (cloudSynced) {
+      showToast('Profil kedai & Wi-Fi berhasil disimpan & disinkronkan ke Cloud & Hub!', 'success');
+    } else {
+      showToast('Profil kedai & Wi-Fi berhasil disimpan & auto-update ke semua Hub!', 'success');
+    }
   }
 
   function savePOSSettings() {

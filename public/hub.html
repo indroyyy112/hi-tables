@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
   <script src="config.js"></script>
   <style>
     :root {
@@ -741,23 +741,114 @@
     document.getElementById('table-number-label').textContent = 'Meja ' + tableParam;
     document.getElementById('order-table-input').value = 'Meja ' + tableParam;
 
+    initRealtimeSyncListeners();
     await loadData();
     updateCartUI();
   });
 
+  function applyLiveStoreConfig(cfg) {
+    if (!cfg) return;
+    if (cfg.name || cfg.store_name) STATE.storeData.name = cfg.name || cfg.store_name;
+    if (cfg.tagline !== undefined) STATE.storeData.tagline = cfg.tagline;
+    if (cfg.wifi_ssid !== undefined) STATE.storeData.wifi_ssid = cfg.wifi_ssid;
+    if (cfg.wifi_password !== undefined) STATE.storeData.wifi_password = cfg.wifi_password;
+    if (cfg.review_link || cfg.google_review_url) {
+      STATE.storeData.google_review_url = cfg.review_link || cfg.google_review_url;
+    }
+
+    var titleEl = document.getElementById('store-title');
+    if (titleEl) titleEl.textContent = STATE.storeData.name;
+    var tagEl = document.getElementById('store-tagline');
+    if (tagEl) tagEl.textContent = STATE.storeData.tagline;
+    document.title = STATE.storeData.name + ' — Smart Table Hub';
+
+    var ssidEl = document.getElementById('modal-wifi-ssid');
+    if (ssidEl) ssidEl.textContent = STATE.storeData.wifi_ssid;
+    var passEl = document.getElementById('modal-wifi-pass');
+    if (passEl) passEl.textContent = STATE.storeData.wifi_password;
+
+    var gRev = document.getElementById('btn-google-review-direct');
+    if (gRev && STATE.storeData.google_review_url) gRev.href = STATE.storeData.google_review_url;
+
+    var sheet = document.getElementById('wifi-sheet');
+    if (sheet && sheet.classList.contains('open')) {
+      renderWifiModalQR();
+    }
+  }
+
+  function initRealtimeSyncListeners() {
+    // 1. Cross-tab instant sync via BroadcastChannel
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        var bc = new BroadcastChannel('kopi_senja_hub_sync');
+        bc.onmessage = function(ev) {
+          if (ev.data && ev.data.type === 'STORE_CONFIG_UPDATED' && ev.data.config) {
+            applyLiveStoreConfig(ev.data.config);
+          }
+        };
+      }
+    } catch(e) {}
+
+    // 2. Storage event listener (multi-window sync)
+    window.addEventListener('storage', function(e) {
+      if (e.key === 'ks_store_config' && e.newValue) {
+        try {
+          var cfg = JSON.parse(e.newValue);
+          applyLiveStoreConfig(cfg);
+        } catch(err) {}
+      }
+    });
+
+    // 3. Supabase realtime subscription
+    try {
+      var sb = window.supabaseClient;
+      if (sb) {
+        sb.channel('hub_store_config_realtime')
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'store_config', filter: 'id=eq.default' }, function(payload) {
+            if (payload.new) {
+              var newCfg = {
+                name: payload.new.store_name,
+                tagline: payload.new.tagline,
+                wifi_ssid: payload.new.wifi_ssid,
+                wifi_password: payload.new.wifi_password,
+                review_link: payload.new.review_link
+              };
+              applyLiveStoreConfig(newCfg);
+              try { localStorage.setItem('ks_store_config', JSON.stringify(newCfg)); } catch(e) {}
+            }
+          })
+          .subscribe();
+      }
+    } catch(e) {}
+  }
+
   async function loadData() {
+    // First read from local storage immediately so admin updates are instant
+    try {
+      var localCfg = localStorage.getItem('ks_store_config');
+      if (localCfg) {
+        applyLiveStoreConfig(JSON.parse(localCfg));
+      }
+    } catch(e) {}
+
     try {
       var sb = window.supabaseClient;
       if (sb) {
         var cfgRes = await sb.from('store_config').select('*').eq('id', 'default').maybeSingle();
         if (cfgRes.data) {
-          STATE.storeData = {
-            name: cfgRes.data.store_name || 'Kopi Senja',
-            tagline: cfgRes.data.tagline || '',
-            wifi_ssid: cfgRes.data.wifi_ssid || 'Kopi Senja',
-            wifi_password: cfgRes.data.wifi_password || 'senusa1708',
-            google_review_url: cfgRes.data.review_link || 'https://maps.google.com'
-          };
+          var localSaved = localStorage.getItem('ks_store_config');
+          // If no local config was saved yet, use supabase cloud config
+          if (!localSaved) {
+            var cloudCfg = {
+              name: cfgRes.data.store_name || 'Kopi Senja',
+              tagline: cfgRes.data.tagline || '',
+              wifi_ssid: cfgRes.data.wifi_ssid || 'Kopi Senja',
+              wifi_password: cfgRes.data.wifi_password || 'senusa1708',
+              google_review_url: cfgRes.data.review_link || 'https://maps.google.com'
+            };
+            applyLiveStoreConfig(cloudCfg);
+            try { localStorage.setItem('ks_store_config', JSON.stringify(cloudCfg)); } catch(e) {}
+          }
           if (cfgRes.data.menu_text) {
             STATE.menuItems = cfgRes.data.menu_text.split('\n').filter(Boolean).map(function(line, idx) {
               var p = line.split('|');
@@ -1091,14 +1182,14 @@
 
   // Wi-Fi Modal
   function openWifiModal() {
+    try {
+      var localCfg = localStorage.getItem('ks_store_config');
+      if (localCfg) applyLiveStoreConfig(JSON.parse(localCfg));
+    } catch(e) {}
+
     document.getElementById('modal-wifi-ssid').textContent = STATE.storeData.wifi_ssid;
     document.getElementById('modal-wifi-pass').textContent = STATE.storeData.wifi_password;
-
-    var qrCodeStr = 'WIFI:T:WPA;S:' + (STATE.storeData.wifi_ssid || '') + ';P:' + (STATE.storeData.wifi_password || '') + ';;';
-    var canvas = document.getElementById('wifi-qr');
-    if (window.QRCode) {
-      QRCode.toCanvas(canvas, qrCodeStr, { width: 170, margin: 1, color: { dark: '#121512', light: '#FFFFFF' } });
-    }
+    renderWifiModalQR();
     document.getElementById('wifi-sheet').classList.add('open');
   }
 
