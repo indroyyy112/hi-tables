@@ -1029,12 +1029,12 @@
 
           <div class="form-group">
             <label>Nama Coffee Shop</label>
-            <input type="text" class="form-control" id="cfg-store-name" value="Kopi Senja">
+            <input type="text" class="form-control" id="cfg-store-name" value="Kopi Senja" oninput="scheduleAutoSave()">
           </div>
 
           <div class="form-group">
             <label>Tagline / Alamat Lengkap</label>
-            <input type="text" class="form-control" id="cfg-tagline" value="Slow coffee, warm conversations. Jl. Kemang Raya 21">
+            <input type="text" class="form-control" id="cfg-tagline" value="Slow coffee, warm conversations. Jl. Kemang Raya 21" oninput="scheduleAutoSave()">
           </div>
 
           <div class="form-group">
@@ -1043,7 +1043,7 @@
               <a href="javascript:void(0)" onclick="testOpenGoogleLink()" style="color:var(--g-700); font-size:11.5px; font-weight:700;">🗺️ Tes Buka Link</a>
             </label>
             <div style="display:flex; gap:8px;">
-              <input type="text" class="form-control" id="cfg-review-link" value="https://maps.app.goo.gl/C8KAm28Pv8kcndpp6">
+              <input type="text" class="form-control" id="cfg-review-link" value="https://maps.app.goo.gl/C8KAm28Pv8kcndpp6" oninput="scheduleAutoSave()">
               <button type="button" class="btn-action" style="flex-shrink:0; font-size:12px; padding:6px 12px;" onclick="testOpenGoogleLink()">Tes</button>
             </div>
             <small style="font-size:11px; color:var(--text-3); margin-top:4px; display:block;">Pengunjung yang memberi rating 4-5★ di kartu NFC akan otomatis dialihkan ke tautan ini.</small>
@@ -1060,12 +1060,12 @@
 
           <div class="form-group">
             <label>Nama Wi-Fi (SSID)</label>
-            <input type="text" class="form-control" id="cfg-wifi-ssid" value="Kopi Senja" oninput="renderWifiQR()">
+            <input type="text" class="form-control" id="cfg-wifi-ssid" value="Kopi Senja" oninput="scheduleAutoSave()">
           </div>
 
           <div class="form-group">
             <label>Kata Sandi Wi-Fi</label>
-            <input type="text" class="form-control" id="cfg-wifi-pass" value="senusa1708" oninput="renderWifiQR()">
+            <input type="text" class="form-control" id="cfg-wifi-pass" value="senusa1708" oninput="scheduleAutoSave()">
           </div>
 
           <div style="text-align:center; margin:16px 0;">
@@ -1276,22 +1276,20 @@
 
       var cfgRes = await sb.from('store_config').select('*').eq('id', 'default').maybeSingle();
       if (cfgRes.data) {
-        var localCfg = localStorage.getItem('ks_store_config');
-        if (!localCfg) {
-          DASH.storeConfig = {
-            name: cfgRes.data.store_name || 'Kopi Senja',
-            tagline: cfgRes.data.tagline || '',
-            wifi_ssid: cfgRes.data.wifi_ssid || 'Kopi Senja',
-            wifi_password: cfgRes.data.wifi_password || 'senusa1708',
-            review_link: cfgRes.data.review_link || ''
-          };
-          localStorage.setItem('ks_store_config', JSON.stringify(DASH.storeConfig));
-          document.getElementById('cfg-store-name').value = DASH.storeConfig.name;
-          document.getElementById('cfg-tagline').value = DASH.storeConfig.tagline;
-          document.getElementById('cfg-wifi-ssid').value = DASH.storeConfig.wifi_ssid;
-          document.getElementById('cfg-wifi-pass').value = DASH.storeConfig.wifi_password;
-          document.getElementById('cfg-review-link').value = DASH.storeConfig.review_link;
-        }
+        DASH.storeConfig = {
+          name: cfgRes.data.store_name || 'Kopi Senja',
+          tagline: cfgRes.data.tagline || '',
+          wifi_ssid: cfgRes.data.wifi_ssid || 'Kopi Senja',
+          wifi_password: cfgRes.data.wifi_password || 'senusa1708',
+          review_link: cfgRes.data.review_link || ''
+        };
+        try { localStorage.setItem('ks_store_config', JSON.stringify(DASH.storeConfig)); } catch(e) {}
+        if (document.getElementById('cfg-store-name')) document.getElementById('cfg-store-name').value = DASH.storeConfig.name;
+        if (document.getElementById('cfg-tagline')) document.getElementById('cfg-tagline').value = DASH.storeConfig.tagline;
+        if (document.getElementById('cfg-wifi-ssid')) document.getElementById('cfg-wifi-ssid').value = DASH.storeConfig.wifi_ssid;
+        if (document.getElementById('cfg-wifi-pass')) document.getElementById('cfg-wifi-pass').value = DASH.storeConfig.wifi_password;
+        if (document.getElementById('cfg-review-link')) document.getElementById('cfg-review-link').value = DASH.storeConfig.review_link;
+        renderWifiQR();
       }
 
       var fbRes = await sb.from('feedback').select('*').order('created_at', { ascending: false }).limit(50);
@@ -1768,12 +1766,21 @@
     }
   }
 
-  async function saveStoreConfig() {
-    var name = document.getElementById('cfg-store-name').value.trim() || 'Kopi Senja';
-    var tagline = document.getElementById('cfg-tagline').value.trim();
-    var ssid = document.getElementById('cfg-wifi-ssid').value.trim();
-    var pass = document.getElementById('cfg-wifi-pass').value.trim();
-    var reviewLink = document.getElementById('cfg-review-link').value.trim();
+  var autoSaveTimer = null;
+  function scheduleAutoSave() {
+    renderWifiQR();
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(function() {
+      saveStoreConfig(true);
+    }, 700);
+  }
+
+  async function saveStoreConfig(isAuto) {
+    var name = (document.getElementById('cfg-store-name') ? document.getElementById('cfg-store-name').value : '').trim() || 'Kopi Senja';
+    var tagline = (document.getElementById('cfg-tagline') ? document.getElementById('cfg-tagline').value : '').trim();
+    var ssid = (document.getElementById('cfg-wifi-ssid') ? document.getElementById('cfg-wifi-ssid').value : '').trim() || 'Kopi Senja';
+    var pass = (document.getElementById('cfg-wifi-pass') ? document.getElementById('cfg-wifi-pass').value : '').trim() || 'senusa1708';
+    var reviewLink = (document.getElementById('cfg-review-link') ? document.getElementById('cfg-review-link').value : '').trim();
 
     DASH.storeConfig = { name: name, tagline: tagline, wifi_ssid: ssid, wifi_password: pass, review_link: reviewLink };
     renderWifiQR();
@@ -1808,6 +1815,8 @@
         
         if (!res.error && res.data && res.data.length > 0) {
           cloudSynced = true;
+        } else if (res.error) {
+          console.error('Supabase update error:', res.error);
         }
       }
     } catch(e) {
@@ -1815,9 +1824,13 @@
     }
 
     if (cloudSynced) {
-      showToast('Profil kedai & Wi-Fi berhasil disimpan & disinkronkan ke Cloud & HP Tamu!', 'success');
+      if (!isAuto) {
+        showToast('Profil kedai & Wi-Fi berhasil disimpan & disinkronkan ke Cloud & HP Tamu!', 'success');
+      }
     } else {
-      showToast('⚠️ Tersimpan di browser ini. Perlu izinkan update di Supabase SQL agar tersinkron ke HP lain.', 'alert');
+      if (!isAuto) {
+        showToast('⚠️ Tersimpan di browser ini. Periksa koneksi Supabase jika belum tersinkron ke HP lain.', 'alert');
+      }
     }
   }
 
