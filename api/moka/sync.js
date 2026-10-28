@@ -45,23 +45,51 @@ export default async function handler(req, res) {
       const clientSecret = (body.client_secret || process.env.MOKA_CLIENT_SECRET || DEFAULT_CLIENT_SECRET).trim();
       const redirectUri = (body.redirect_uri || process.env.MOKA_REDIRECT_URI || DEFAULT_REDIRECT_URI).trim();
 
-      const tokenRes = await fetch('https://api.mokapos.com/oauth/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({
-          client_id: clientId,
-          client_secret: clientSecret,
-          grant_type: 'authorization_code',
-          code: cleanCode,
-          redirect_uri: redirectUri
-        })
-      });
+      // Possible redirect URI candidates in case of slight domain mismatch in Moka portal
+      const candidateUris = Array.from(new Set([
+        redirectUri,
+        "https://www.hitables.com/",
+        "https://hitables.com/",
+        "http://hitables.com/",
+        "https://hi-tables.vercel.app/"
+      ]));
 
-      const tokenJson = await tokenRes.json();
-      if (!tokenRes.ok) {
-        return res.status(tokenRes.status).json({
-          error: tokenJson.error || 'token_exchange_failed',
-          error_description: tokenJson.error_description || 'Moka authorization code exchange failed',
+      let tokenJson = null;
+      let lastStatus = 400;
+
+      for (const uri of candidateUris) {
+        try {
+          const res = await fetch('https://api.mokapos.com/oauth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+              client_id: clientId,
+              client_secret: clientSecret,
+              grant_type: 'authorization_code',
+              code: cleanCode,
+              redirect_uri: uri
+            })
+          });
+
+          lastStatus = res.status;
+          const text = await res.text();
+          const parsed = text ? JSON.parse(text) : {};
+
+          if (res.ok && parsed.access_token) {
+            tokenJson = parsed;
+            break;
+          } else {
+            tokenJson = parsed;
+          }
+        } catch(e) {
+          console.warn('Token attempt error for uri ' + uri, e);
+        }
+      }
+
+      if (!tokenJson || !tokenJson.access_token) {
+        return res.status(lastStatus).json({
+          error: tokenJson?.error || 'token_exchange_failed',
+          error_description: tokenJson?.error_description || 'Moka authorization code exchange failed',
           details: tokenJson
         });
       }
@@ -81,7 +109,12 @@ export default async function handler(req, res) {
       const outRes = await fetch('https://api.mokapos.com/v1/outlets', {
         headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
       });
-      const outJson = await outRes.json();
+      let outJson = {};
+      try {
+        const outText = await outRes.text();
+        outJson = outText ? JSON.parse(outText) : {};
+      } catch(e) {}
+
       if (outRes.ok) {
         let outlets = [];
         if (outJson.data && Array.isArray(outJson.data.outlets)) outlets = outJson.data.outlets;
@@ -108,7 +141,11 @@ export default async function handler(req, res) {
         headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
       });
       if (catRes.ok) {
-        const catJson = await catRes.json();
+        let catJson = {};
+        try {
+          const catText = await catRes.text();
+          catJson = catText ? JSON.parse(catText) : {};
+        } catch(e) {}
         const cats = Array.isArray(catJson.data) ? catJson.data : (catJson.data?.categories || []);
         cats.forEach(c => {
           if (c && c.id) categoriesMap[c.id] = c.name;
@@ -126,7 +163,12 @@ export default async function handler(req, res) {
       }
     });
 
-    const itemsJson = await itemsRes.json();
+    let itemsJson = {};
+    try {
+      const itemsText = await itemsRes.text();
+      itemsJson = itemsText ? JSON.parse(itemsText) : {};
+    } catch(e) {}
+
     if (!itemsRes.ok) {
       return res.status(itemsRes.status).json({
         error: 'fetch_items_failed',
