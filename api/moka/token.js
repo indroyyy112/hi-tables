@@ -37,34 +37,79 @@ export default async function handler(req, res) {
       if (match && match[1]) cleanCode = match[1];
     }
 
-    const payload = refreshToken ? {
-      client_id: clientId,
-      client_secret: clientSecret,
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken
-    } : {
-      client_id: clientId,
-      client_secret: clientSecret,
-      grant_type: 'authorization_code',
-      code: cleanCode,
-      redirect_uri: redirectUri
-    };
+    // Candidate URIs to match whatever is registered in Moka Developer portal
+    const candidateUris = Array.from(new Set([
+      redirectUri,
+      "https://www.hitables.com/",
+      "https://www.hitables.com",
+      "https://hitables.com/",
+      "https://hitables.com",
+      "https://hitables.co/callback",
+      "https://hi-tables.vercel.app/",
+      "https://hi-tables.vercel.app"
+    ]));
 
-    const mokaRes = await fetch('https://api.mokapos.com/oauth/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
+    let data = null;
+    let lastError = null;
 
-    const data = await mokaRes.json();
-    if (!mokaRes.ok) {
-      return res.status(mokaRes.status).json({
-        error: data.error || 'token_exchange_failed',
-        error_description: data.error_description || 'Moka POS token exchange failed',
-        details: data
+    if (refreshToken) {
+      const payload = {
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken
+      };
+      const mokaRes = await fetch('https://api.mokapos.com/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const parsed = await mokaRes.json().catch(() => ({}));
+      if (!mokaRes.ok) {
+        return res.status(mokaRes.status).json({
+          error: parsed.error || 'token_exchange_failed',
+          error_description: parsed.error_description || 'Moka refresh token exchange failed',
+          details: parsed
+        });
+      }
+      return res.status(200).json(parsed);
+    }
+
+    // Try candidate URIs for authorization_code
+    for (const testUri of candidateUris) {
+      try {
+        const payload = {
+          client_id: clientId,
+          client_secret: clientSecret,
+          grant_type: 'authorization_code',
+          code: cleanCode,
+          redirect_uri: testUri
+        };
+        const mokaRes = await fetch('https://api.mokapos.com/oauth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const resText = await mokaRes.text();
+        let resJson = {};
+        try { resJson = JSON.parse(resText); } catch(e) {}
+
+        if (mokaRes.ok && resJson.access_token) {
+          data = resJson;
+          break;
+        } else {
+          lastError = resJson;
+        }
+      } catch (err) {
+        lastError = { error: 'fetch_error', message: err.message };
+      }
+    }
+
+    if (!data) {
+      return res.status(400).json({
+        error: lastError?.error || 'token_exchange_failed',
+        error_description: lastError?.error_description || 'Moka token exchange failed. Pastikan kode otorisasi masih baru (berlaku 5 menit).',
+        details: lastError
       });
     }
 

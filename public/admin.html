@@ -1041,8 +1041,17 @@
           </div>
 
           <div class="form-group">
-            <label>Redirect URI</label>
-            <input type="text" class="form-control" id="pos-moka-redirect-uri" value="https://www.hitables.com/">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <label style="margin:0;">Redirect URI (Wajib sama persis dengan Moka Developer)</label>
+            </div>
+            <input type="text" class="form-control" id="pos-moka-redirect-uri" value="https://www.hitables.com/" placeholder="e.g. https://www.hitables.com/">
+            <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">
+              <button type="button" class="btn-action" style="padding:4px 8px; font-size:11px;" onclick="setRedirectPreset('https://www.hitables.com/')">📌 Set ke www.hitables.com</button>
+              <button type="button" class="btn-action" style="padding:4px 8px; font-size:11px;" onclick="setRedirectPreset('https://hi-tables.vercel.app/')">📌 Set ke hi-tables.vercel.app</button>
+            </div>
+            <p style="font-size:11px; color:var(--text-3); margin-top:6px; line-height:1.4;">
+              💡 Jika Moka menampilkan error <em>"The redirect uri included is not valid"</em>, ganti pilihan URL di atas sesuai yang didaftarkan di Backoffice Moka, atau update Callback URL di Backoffice Moka ke <code>https://hi-tables.vercel.app/</code>.
+            </p>
           </div>
 
           <div class="form-group">
@@ -1820,14 +1829,22 @@
       }
     } catch(e) {}
 
-    // Auto-detect origin so it works seamlessly on vercel.app, custom domain, or localhost
-    if (!MOKA_CONFIG.redirectUri || MOKA_CONFIG.redirectUri.includes('hitables.com')) {
-      MOKA_CONFIG.redirectUri = (window.location.origin || 'https://hi-tables.vercel.app') + '/';
+    // Default to https://www.hitables.com/ if not set
+    if (!MOKA_CONFIG.redirectUri) {
+      MOKA_CONFIG.redirectUri = 'https://www.hitables.com/';
     }
     if (document.getElementById('pos-moka-redirect-uri')) {
       document.getElementById('pos-moka-redirect-uri').value = MOKA_CONFIG.redirectUri;
     }
     updateMokaUI();
+  }
+
+  function setRedirectPreset(val) {
+    var el = document.getElementById('pos-moka-redirect-uri');
+    if (el) el.value = val;
+    MOKA_CONFIG.redirectUri = val;
+    localStorage.setItem('ks_moka_conn', JSON.stringify(MOKA_CONFIG));
+    showToast('Redirect URI diubah ke: ' + val, 'success');
   }
 
   function updateMokaUI() {

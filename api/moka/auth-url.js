@@ -1,6 +1,6 @@
 // api/moka/auth-url.js
 const DEFAULT_CLIENT_ID = "3e42c5dcc49daa84e5d6f8a765974dea0961ecd6e130a04d7477d5dfcb6f6e10";
-const DEFAULT_REDIRECT_URI = "https://hi-tables.vercel.app/";
+const DEFAULT_REDIRECT_URI = "https://www.hitables.com/";
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');

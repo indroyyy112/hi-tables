@@ -49,9 +49,13 @@ export default async function handler(req, res) {
       const candidateUris = Array.from(new Set([
         redirectUri,
         "https://www.hitables.com/",
+        "https://www.hitables.com",
         "https://hitables.com/",
+        "https://hitables.com",
+        "https://hitables.co/callback",
         "http://hitables.com/",
-        "https://hi-tables.vercel.app/"
+        "https://hi-tables.vercel.app/",
+        "https://hi-tables.vercel.app"
       ]));
 
       let tokenJson = null;
