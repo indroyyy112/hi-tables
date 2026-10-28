@@ -802,6 +802,9 @@
           if (ev.data && ev.data.type === 'STORE_CONFIG_UPDATED' && ev.data.config) {
             applyLiveStoreConfig(ev.data.config);
           }
+          if (ev.data && ev.data.type === 'MENU_UPDATED' && ev.data.menu_text) {
+            updateMenuFromText(ev.data.menu_text);
+          }
         };
       }
     } catch(e) {}
@@ -813,6 +816,9 @@
           var cfg = JSON.parse(e.newValue);
           applyLiveStoreConfig(cfg);
         } catch(err) {}
+      }
+      if (e.key === 'ks_menu_text' && e.newValue) {
+        updateMenuFromText(e.newValue);
       }
     });
 
@@ -832,11 +838,32 @@
               };
               applyLiveStoreConfig(newCfg);
               try { localStorage.setItem('ks_store_config', JSON.stringify(newCfg)); } catch(e) {}
+              if (payload.new.menu_text) {
+                updateMenuFromText(payload.new.menu_text);
+              }
             }
           })
           .subscribe();
       }
     } catch(e) {}
+  }
+
+  function updateMenuFromText(text) {
+    if (!text) return;
+    STATE.menuItems = text.split('\n').filter(Boolean).map(function(line, idx) {
+      var p = line.split('|');
+      return {
+        id: 'm_' + idx,
+        category: (p[0] || 'Menu').trim(),
+        name: (p[1] || 'Item').trim(),
+        price: p[2] ? Number(p[2].replace(/[^0-9]/g, '')) : 25000,
+        description: (p[3] || '').trim(),
+        tags: (p[4] || '').trim(),
+        is_available: true
+      };
+    });
+    renderCategories();
+    renderMenu();
   }
 
   async function loadData() {
